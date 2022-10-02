@@ -6,7 +6,7 @@ package main
 // go build -buildmode=plugin wc.go
 //
 
-import "../mr" 
+import "6.824/src/mr"  //added go.mod file with 6.824 folder as root and modified relative imports
 import "unicode"
 import "strings"
 import "strconv"
