@@ -9,7 +9,10 @@ import "net/http"
 
 type Master struct {
 	// Your definitions here.
-
+	files []string
+	nReduce int
+	mapTasksDone int
+	reduceTasksDone int
 }
 
 // Your code here -- RPC handlers for the worker to call.
@@ -25,7 +28,16 @@ func (m *Master) Example(args *ExampleArgs, reply *ExampleReply) error {
 }
 
 func (m *Master) AssignMapTask(request *Request, reply *Reply) error {
-	
+	if m.mapTasksDone == len(m.files) {
+		reply.mapsDone = true
+	} else {
+		reply.filename = m.files[m.mapTasksDone]
+		reply.mapper = m.mapTasksDone
+		reply.nReduce = m.nReduce
+		reply.mapsDone = false
+		m.mapTasksDone++
+	}
+	return nil
 }
 
 
@@ -67,7 +79,10 @@ func MakeMaster(files []string, nReduce int) *Master {
 	m := Master{}
 
 	// Your code here.
-
+	m.files = files
+	m.nReduce = nReduce
+	m.mapTasksDone = 0
+	m.reduceTasksDone = 0
 
 	m.server()
 	return &m

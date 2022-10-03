@@ -2,6 +2,7 @@ package mr
 
 import "fmt"
 import "log"
+import "os"
 import "net/rpc"
 import "hash/fnv"
 
@@ -24,6 +25,39 @@ func ihash(key string) int {
 	return int(h.Sum32() & 0x7fffffff)
 }
 
+func runMap(filename string) []KeyValue {
+	file, err := os.Open(filename)
+	if err != nil {
+		log.Fatalf("cannot open %v", filename)
+	}
+	content, err := ioutil.ReadAll(file)
+	if err != nil {
+		log.Fatalf("cannot read %v", filename)
+	}
+	file.Close()
+	return mapf(filename, string(content))
+}
+
+func writeMapOutput(kva []KeyValue, mapper int, nReduce int) {
+	// oname := "mr-out-0"
+	// ofile, _ := os.Create(oname)
+
+	// This needs to be optimised, figure out how to create array of kv objects
+
+	i := 0
+	for i < nReduce {
+		oname := fmt.Sprintf("mr-%v-%v", mapper, i)
+		ofile, _ := os.Create(oname)
+		enc := json.NewEncoder(ofile)
+		for _, kv := kva {
+			reducer_number = ihash(kv.Key)
+			if reducer_number == i {
+				err := enc.Encode(&kv)
+			}
+		}
+	}
+}
+
 
 //
 // main/mrworker.go calls this function.
@@ -35,6 +69,21 @@ func Worker(mapf func(string, string) []KeyValue,
 
 	// uncomment to send the Example RPC to the master.
 	// CallExample()
+	askForReduce := false
+	
+	for true {
+		if (askForReduce == false) {
+			reply := RequestMapTask()
+			if reply.mapsDone == true {
+				askForReduce = true
+				continue
+			}
+			kva := runMap(reply.filename)
+			writeMapOutput(kva)
+		} else {
+			// request and run reduce tasks
+		}
+	}
 
 }
 
