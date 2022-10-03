@@ -43,6 +43,8 @@ func Worker(mapf func(string, string) []KeyValue,
 //
 // the RPC argument and reply types are defined in rpc.go.
 //
+
+
 func CallExample() {
 
 	// declare an argument structure.
@@ -59,6 +61,15 @@ func CallExample() {
 
 	// reply.Y should be 100.
 	fmt.Printf("reply.Y %v\n", reply.Y)
+}
+
+func RequestMapTask() Reply{
+	request = Request{}
+	reply = Reply{}
+
+	call("Master.AssignMapTask", &request, &reply)
+
+	return reply
 }
 
 //

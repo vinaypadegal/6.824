@@ -24,6 +24,10 @@ func (m *Master) Example(args *ExampleArgs, reply *ExampleReply) error {
 	return nil
 }
 
+func (m *Master) AssignMapTask(request *Request, reply *Reply) error {
+	
+}
+
 
 //
 // start a thread that listens for RPCs from worker.go
