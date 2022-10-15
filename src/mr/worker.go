@@ -87,8 +87,8 @@ func Worker(mapf func(string, string) []KeyValue,
 	
 	for true {
 		if (askForReduce == false) {
-			err, reply := RequestMapTask()
-			if err != nil {
+			ok, reply := RequestMapTask()
+			if ok == false {
 				break
 			}
 			if reply.mapsDone == true {
@@ -129,13 +129,13 @@ func CallExample() {
 	fmt.Printf("reply.Y %v\n", reply.Y)
 }
 
-func RequestMapTask() Reply{
-	request = Request{}
-	reply = Reply{}
+func RequestTask() TaskReply{
+	request = TaskRequest{}
+	reply = TaskReply{}
 
-	err = call("Master.AssignMapTask", &request, &reply)
+	ok = call("Master.RequestTask", &request, &reply)
 
-	return err, reply
+	return ok, reply
 }
 
 //

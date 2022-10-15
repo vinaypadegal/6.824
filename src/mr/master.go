@@ -3,16 +3,39 @@ package mr
 import "log"
 import "net"
 import "os"
+import "time"
+import "sync"
 import "net/rpc"
 import "net/http"
 
+type MapTask struct {
+	taskStatus string
+	timeBegun time.Time
+	workerID int
+	filename string
+	// taskNumber int
+}
+
+type ReduceTask struct {
+	taskStatus string
+	timeBegun time.Time
+	workerID int
+	// taskNumber int
+}
 
 type Master struct {
 	// Your definitions here.
-	files []string
+	mapTasks map[int]*MapTask
+	reduceTasks map[int]*ReduceTask
+
+	// files []string
 	nReduce int
-	mapTasksDone int
-	reduceTasksDone int
+	nMap int
+	threshold time.Duration
+	mapTasksCompleted bool
+	reduceTasksCompleted bool
+
+	mu sync.Mutex
 }
 
 // Your code here -- RPC handlers for the worker to call.
@@ -27,17 +50,44 @@ func (m *Master) Example(args *ExampleArgs, reply *ExampleReply) error {
 	return nil
 }
 
-func (m *Master) AssignMapTask(request *Request, reply *Reply) error {
-	if m.mapTasksDone == len(m.files) {
-		reply.mapsDone = true
+func (m *Master) RequestTask(request *TaskRequest, reply *TaskReply) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.mapTasksCompleted == true {
+		log.Println("Map tasks completed. Assigning reduce tasks now")
+		return m.AssignMapTask(request, reply)
 	} else {
-		reply.filename = m.files[m.mapTasksDone]
-		reply.mapper = m.mapTasksDone
-		reply.nReduce = m.nReduce
-		reply.mapsDone = false
-		m.mapTasksDone++
+		return m.AssignReduceTask(request, reply)
+	}
+}
+
+func (m *Master) AssignMapTask(request *TaskRequest, reply *TaskReply) error {
+	for k,v := range m.mapTasks {
+		if v.taskStatus == "Not Started" {
+			reply.taskType = "MAP"
+			reply.taskNumber = k
+			reply.filename = v.filename
+			v.taskStatus = "In Progress"
+			v.timeBegun = time.Now()
+			v.workerID = request.workerID
+			log.Println("Assigning new map task %d to worker %d", k, request.workerID)
+		}
+		if curTask.taskStatus == "In Progress" & (time.Now().Sub(curTask.timeBegun) > m.threshold) {
+			oldWorker := v.workerID
+			reply.taskType = "MAP"
+			reply.taskNumber = k
+			reply.filename = v.filename
+			v.timeBegun = time.Now()
+			v.workerID = request.workerID
+			log.Println("Re-assigning map task %d to worker %d, old worker was %d", k, request.workerID, oldWorker)
+		}
 	}
 	return nil
+}
+
+func (m *Master) AssignReduceTask(request *TaskRequest, reply *TaskReply) error {
+	
 }
 
 
@@ -76,13 +126,42 @@ func (m *Master) Done() bool {
 // nReduce is the number of reduce tasks to use.
 //
 func MakeMaster(files []string, nReduce int) *Master {
-	m := Master{}
+	m := Master{
+		mapTasks: make(map[int]*MapTask)
+		reduceTasks: make(map[int]*ReduceTask)
+
+		nMap: len(files)
+		nReduce: nReduce
+		threshold: time.Second * 10
+
+		mapTasksCompleted: false
+		reduceTasksCompleted: false
+	}
+
+	for k, v := files {
+		mapTask := &MapTask{
+			taskStatus: "Not Started"
+			filename: v
+			taskNumber: k
+		}
+		m.mapTasks[k] = mapTask
+	}
+
+	i := 0
+	for i < nReduce {
+		reduceTask := &ReduceTask{
+			taskStatus: "Not Started"
+			taskNumber: i
+		}
+		m.reduceTasks[i] = reduceTask
+		i = i + 1
+	}
 
 	// Your code here.
-	m.files = files
-	m.nReduce = nReduce
-	m.mapTasksDone = 0
-	m.reduceTasksDone = 0
+	// m.files = files
+	// m.nReduce = nReduce
+	// m.mapTasksDone = 0
+	// m.reduceTasksDone = 0
 
 	m.server()
 	return &m

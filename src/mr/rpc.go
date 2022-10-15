@@ -24,9 +24,21 @@ import "strconv"
 
 // Add your RPC definitions here.
 
-type Request struct {}
+type TaskRequest struct {
+	workerID int
+}
 
-type Reply struct {
+type TaskResponse struct {
+	taskType string
+	taskNumber int
+
+	filename string
+	nReduce int
+}
+
+type MapRequest struct {}
+
+type MapReply struct {
 	filename string
 	mapper int
 	nReduce int
