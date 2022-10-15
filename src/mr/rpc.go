@@ -36,14 +36,14 @@ type TaskResponse struct {
 	nReduce int
 }
 
-type MapRequest struct {}
+// type MapRequest struct {}
 
-type MapReply struct {
-	filename string
-	mapper int
-	nReduce int
-	mapsDone bool
-}
+// type MapReply struct {
+// 	filename string
+// 	mapper int
+// 	nReduce int
+// 	mapsDone bool
+// }
 
 
 // Cook up a unique-ish UNIX-domain socket name

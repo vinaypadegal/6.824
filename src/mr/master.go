@@ -73,7 +73,7 @@ func (m *Master) AssignMapTask(request *TaskRequest, reply *TaskReply) error {
 			v.workerID = request.workerID
 			log.Println("Assigning new map task %d to worker %d", k, request.workerID)
 		}
-		if curTask.taskStatus == "In Progress" & (time.Now().Sub(curTask.timeBegun) > m.threshold) {
+		if v.taskStatus == "In Progress" & (time.Now().Sub(v.timeBegun) > m.threshold) {
 			oldWorker := v.workerID
 			reply.taskType = "MAP"
 			reply.taskNumber = k
@@ -87,7 +87,26 @@ func (m *Master) AssignMapTask(request *TaskRequest, reply *TaskReply) error {
 }
 
 func (m *Master) AssignReduceTask(request *TaskRequest, reply *TaskReply) error {
-	
+	for i = 0; i < nReduce; i++ {
+		v := m.reduceTasks[i]
+		if v.taskStatus == "Not Started" {
+			reply.taskType = "REDUCE"
+			reply.taskNumber = k
+			v.taskStatus = "In Progress"
+			v.timeBegun = time.Now()
+			v.workerID = request.workerID
+			log.Println("Assigning new reduce task %d to worker %d", k, request.workerID)
+		}
+		if v.taskStatus == "In Progress" & (time.Now().Sub(v.timeBegun) > m.threshold) {
+			oldWorker := v.workerID
+			reply.taskType = "REDUCE"
+			reply.taskNumber = k
+			v.timeBegun = time.Now()
+			v.workerID = request.workerID
+			log.Println("Re-assigning reduce task %d to worker %d, old worker was %d", k, request.workerID, oldWorker)
+		}
+	}
+	return nil
 }
 
 
@@ -142,7 +161,7 @@ func MakeMaster(files []string, nReduce int) *Master {
 		mapTask := &MapTask{
 			taskStatus: "Not Started"
 			filename: v
-			taskNumber: k
+			// taskNumber: k
 		}
 		m.mapTasks[k] = mapTask
 	}
@@ -151,7 +170,7 @@ func MakeMaster(files []string, nReduce int) *Master {
 	for i < nReduce {
 		reduceTask := &ReduceTask{
 			taskStatus: "Not Started"
-			taskNumber: i
+			// taskNumber: i
 		}
 		m.reduceTasks[i] = reduceTask
 		i = i + 1
