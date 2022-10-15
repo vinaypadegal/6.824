@@ -3,6 +3,7 @@ package mr
 import "fmt"
 import "log"
 import "os"
+import "encoding/json"
 import "net/rpc"
 import "hash/fnv"
 
@@ -42,34 +43,32 @@ func writeMapOutput(kva []KeyValue, mapper int, nReduce int) {
 	// oname := "mr-out-0"
 	// ofile, _ := os.Create(oname)
 
-	// This needs to be optimised, figure out how to create array of kv objects
-
 	// i := 0
+	// var ofiles [nReduce]*File  // is this right?
 	// for i < nReduce {
 	// 	oname := fmt.Sprintf("mr-%v-%v", mapper, i)
 	// 	ofile, _ := os.Create(oname)
-	// 	enc := json.NewEncoder(ofile)
-	// 	for _, kv := kva {
-	// 		reducer_number = ihash(kv.Key)
-	// 		if reducer_number == i {
-	// 			err := enc.Encode(&kv)
-	// 		}
-	// 	}
+	// 	ofiles = append(ofiles, ofile)	
 	// }
 
-	i := 0
-	var ofiles [nReduce]*File  // is this right?
-	for i < nReduce {
-		oname := fmt.Sprintf("mr-%v-%v", mapper, i)
-		ofile, _ := os.Create(oname)
-		ofiles = append(ofiles, ofile)	
-	}
-
-	for _, kv := kva {
-		reducer_number = ihash(kv.Key)
-		enc := json.NewEncoder(ofiles[reducer_number])
-		err := enc.Encode(&kv)
-	}
+	// for _, kv := kva {
+	// 	reducer_number = ihash(kv.Key)
+	// 	enc := json.NewEncoder(ofiles[reducer_number])
+	// 	err := enc.Encode(&kv)
+	// }
+	
+	encoders := make(map[string]*json.Encoder)
+	for k, v := range kva {
+		reducer_number := ihash(v.Key) & nReduce
+		oname := "mr-" + mapper + "-" + reducer_number
+		if encoder, exists := encoders[oname]; !exists {
+			ofile, _ := os.Create(oname)
+			enc := json.NewEncoder(ofile)
+			encoders[oname] = enc
+		}
+		encoders[oname].Encode(&kv)
+	} 
+	return nil
 }
 
 
@@ -83,20 +82,16 @@ func Worker(mapf func(string, string) []KeyValue,
 
 	// uncomment to send the Example RPC to the master.
 	// CallExample()
-	askForReduce := false
-	
 	for true {
 		if (askForReduce == false) {
-			ok, reply := RequestMapTask()
+			ok, reply := RequestTask()
 			if ok == false {
 				break
 			}
-			if reply.mapsDone == true {
-				askForReduce = true
-				continue
+			if reply.taskType == "MAP" {
+				kva := runMap(reply.filename)
+				writeMapOutput(kva, reply.taskNumber, reply.nReduce)
 			}
-			kva := runMap(reply.filename)
-			writeMapOutput(kva)
 		} else {
 			// request and run reduce tasks
 		}
