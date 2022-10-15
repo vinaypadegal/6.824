@@ -44,17 +44,31 @@ func writeMapOutput(kva []KeyValue, mapper int, nReduce int) {
 
 	// This needs to be optimised, figure out how to create array of kv objects
 
+	// i := 0
+	// for i < nReduce {
+	// 	oname := fmt.Sprintf("mr-%v-%v", mapper, i)
+	// 	ofile, _ := os.Create(oname)
+	// 	enc := json.NewEncoder(ofile)
+	// 	for _, kv := kva {
+	// 		reducer_number = ihash(kv.Key)
+	// 		if reducer_number == i {
+	// 			err := enc.Encode(&kv)
+	// 		}
+	// 	}
+	// }
+
 	i := 0
+	var ofiles [nReduce]*File  // is this right?
 	for i < nReduce {
 		oname := fmt.Sprintf("mr-%v-%v", mapper, i)
 		ofile, _ := os.Create(oname)
-		enc := json.NewEncoder(ofile)
-		for _, kv := kva {
-			reducer_number = ihash(kv.Key)
-			if reducer_number == i {
-				err := enc.Encode(&kv)
-			}
-		}
+		ofiles = append(ofiles, ofile)	
+	}
+
+	for _, kv := kva {
+		reducer_number = ihash(kv.Key)
+		enc := json.NewEncoder(ofiles[reducer_number])
+		err := enc.Encode(&kv)
 	}
 }
 
@@ -73,7 +87,10 @@ func Worker(mapf func(string, string) []KeyValue,
 	
 	for true {
 		if (askForReduce == false) {
-			reply := RequestMapTask()
+			err, reply := RequestMapTask()
+			if err != nil {
+				break
+			}
 			if reply.mapsDone == true {
 				askForReduce = true
 				continue
@@ -116,9 +133,9 @@ func RequestMapTask() Reply{
 	request = Request{}
 	reply = Reply{}
 
-	call("Master.AssignMapTask", &request, &reply)
+	err = call("Master.AssignMapTask", &request, &reply)
 
-	return reply
+	return err, reply
 }
 
 //
