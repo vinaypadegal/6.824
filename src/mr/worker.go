@@ -41,11 +41,11 @@ func runMap(filename string) []KeyValue {
 }
 
 
-func writeMapOutput(kva []KeyValue, mapper int, nReduce int) {
+func writeMapOutput(kva []KeyValue, mapTaskNumber int, nReduce int) {
 	encoders := make(map[string]*json.Encoder)
 	for k, v := range kva {
 		reducer_number := ihash(v.Key) % nReduce
-		oname := "mr-" + mapper + "-" + reducer_number
+		oname := "mr-" + mapTaskNumber + "-" + reducer_number
 		if _, exists := encoders[oname]; !exists {
 			ofile, _ := os.Create(oname)
 			enc := json.NewEncoder(ofile)
@@ -54,6 +54,52 @@ func writeMapOutput(kva []KeyValue, mapper int, nReduce int) {
 		encoders[oname].Encode(&kv)
 	} 
 	return nil
+}
+
+
+func retrieveMapOutputs(reduceTaskNumber int, nMap int) (bool, []KeyValue) {
+	intermediate := []KeyValue{}
+	ok = true
+	for i := 0; i < nMap; i++ {
+		iname := "mr-" + i + "-" + reduceTaskNumber
+		ifile := json.NewDecoder(ifile)
+
+		var kv KeyValue
+    	if err := dec.Decode(&kv); err != nil {
+      		log.Println(err)
+			ok = false
+    	} else {
+			intermediate = append(intermediate, kv)
+		}
+	}
+	return ok, intermediate
+}
+
+
+func runReduce(intermediate []KeyValue, reduceTaskNumber int) {
+	sort.Sort([]KeyValue(intermediate))
+
+	oname := "mr-out-" + reduceTaskNumber
+	ofile, _ := os.Create(oname)
+
+	i := 0
+	for i < len(intermediate) {
+		j := i + 1
+		for j < len(intermediate) && intermediate[j].Key == intermediate[i].Key {
+			j++
+		}
+		values := []string{}
+		for k := i; k < j; k++ {
+			values = append(values, intermediate[k].Value)
+		}
+		output := reducef(intermediate[i].Key, values)
+
+		// this is the correct format for each line of Reduce output.
+		fmt.Fprintf(ofile, "%v %v\n", intermediate[i].Key, output)
+
+		i = j
+	}
+	ofile.Close()
 }
 
 
@@ -84,8 +130,14 @@ func Worker(mapf func(string, string) []KeyValue,
 		}
 		else if reply.taskType == "REDUCE" {
 			log.Println("Worker: %d: Assigned REDUCE task %d", workerID, reply.taskNumber)
-			// run reduce
+			ok, intermediate := retrieveMapOutputs(reply.taskNumber, reply.nMap)
+			if ok {
+				runReduce(intermediate)
+				res := NotifyMaster("REDUCE", reply.taskNumber, workerID)
+				log.Println("Worker %d: Assigned REDUCE task, success status: %d", workerID, res.success)
+			}
 		}
+		time.Sleep(time.Second * 5)
 	}
 
 }
@@ -115,7 +167,7 @@ func CallExample() {
 }
 
 
-func RequestMaster() TaskReply {
+func RequestMaster() (bool, TaskReply) {
 	request := TaskRequest{
 		workedID: workerID
 	}
@@ -139,6 +191,8 @@ func NotifyMaster(taskType, taskNumber, workerID) NotifyResponse {
 
 	return res
 }
+
+
 //
 // send an RPC request to the master, wait for the response.
 // usually returns true.

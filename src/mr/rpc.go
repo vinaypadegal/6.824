@@ -32,8 +32,12 @@ type TaskResponse struct {
 	taskType string
 	taskNumber int
 
+	// specific to map tasks
 	filename string
 	nReduce int
+
+	// specific to reduce tasks
+	nMap int
 }
 
 

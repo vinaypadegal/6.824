@@ -112,6 +112,7 @@ func (m *Master) AssignMapTask(request *TaskRequest, reply *TaskReply) error {
 			reply.taskType = "MAP"
 			reply.taskNumber = k
 			reply.filename = v.filename
+			reply.nReduce = m.nReduce
 			v.taskStatus = "In Progress"
 			v.timeBegun = time.Now()
 			v.workerID = request.workerID
@@ -122,6 +123,7 @@ func (m *Master) AssignMapTask(request *TaskRequest, reply *TaskReply) error {
 			reply.taskType = "MAP"
 			reply.taskNumber = k
 			reply.filename = v.filename
+			reply.nReduce = m.nReduce
 			v.timeBegun = time.Now()
 			v.workerID = request.workerID
 			log.Println("Re-assigning map task %d to worker %d, old worker was %d", k, request.workerID, oldWorker)
@@ -137,6 +139,7 @@ func (m *Master) AssignReduceTask(request *TaskRequest, reply *TaskReply) error 
 		if v.taskStatus == "Not Started" {
 			reply.taskType = "REDUCE"
 			reply.taskNumber = k
+			reply.nMap = m.nMap
 			v.taskStatus = "In Progress"
 			v.timeBegun = time.Now()
 			v.workerID = request.workerID
@@ -146,6 +149,7 @@ func (m *Master) AssignReduceTask(request *TaskRequest, reply *TaskReply) error 
 			oldWorker := v.workerID
 			reply.taskType = "REDUCE"
 			reply.taskNumber = k
+			reply.nMap = m.nMap
 			v.timeBegun = time.Now()
 			v.workerID = request.workerID
 			log.Println("Re-assigning reduce task %d to worker %d, old worker was %d", k, request.workerID, oldWorker)
