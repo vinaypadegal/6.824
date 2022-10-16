@@ -76,12 +76,15 @@ func Worker(mapf func(string, string) []KeyValue,
 			break
 		}
 		if reply.taskType == "MAP" {
-			log.Println("Worker %d: Assigned %s task %d", workerID, reply.taskType, reply.taskNumber)
+			log.Println("Worker %d: Assigned MAP task %d", workerID, reply.taskNumber)
 			kva := runMap(reply.filename)
 			writeMapOutput(kva, reply.taskNumber, reply.nReduce)
+			res := NotifyMaster("MAP", reply.taskNumber, workerID)
+			log.Println("Worker %d: Assigned MAP task, success status: %d", workerID, res.success)
 		}
 		else if reply.taskType == "REDUCE" {
-			
+			log.Println("Worker: %d: Assigned REDUCE task %d", workerID, reply.taskNumber)
+			// run reduce
 		}
 	}
 
@@ -112,15 +115,30 @@ func CallExample() {
 }
 
 
-func RequestMaster() TaskReply{
-	request = TaskRequest{}
-	reply = TaskReply{}
+func RequestMaster() TaskReply {
+	request := TaskRequest{
+		workedID: workerID
+	}
+	reply := TaskReply{}
 
 	ok = call("Master.RequestTask", &request, &reply)
 
 	return ok, reply
 }
 
+
+func NotifyMaster(taskType, taskNumber, workerID) NotifyResponse {
+	req := NotifyRequest{
+		taskType: taskType
+		taskNumber: taskNumber
+		workerID: workerID
+	}
+	res := NotifyResponse{}
+
+	call("Master.NotifyTaskCompletion", &req, &res)
+
+	return res
+}
 //
 // send an RPC request to the master, wait for the response.
 // usually returns true.
