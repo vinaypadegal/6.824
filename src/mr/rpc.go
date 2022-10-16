@@ -36,6 +36,18 @@ type TaskResponse struct {
 	nReduce int
 }
 
+
+type NotifyRequest struct {
+	taskType string
+	taskNumber int
+	workerID int
+}
+
+type NotifyResponse struct {
+	success bool  // not really required tbh
+}
+
+
 // type MapRequest struct {}
 
 // type MapReply struct {

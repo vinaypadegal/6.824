@@ -50,17 +50,61 @@ func (m *Master) Example(args *ExampleArgs, reply *ExampleReply) error {
 	return nil
 }
 
+
 func (m *Master) RequestTask(request *TaskRequest, reply *TaskReply) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	if m.mapTasksCompleted == true {
 		log.Println("Map tasks completed. Assigning reduce tasks now")
-		return m.AssignMapTask(request, reply)
-	} else {
 		return m.AssignReduceTask(request, reply)
+	} else {
+		return m.AssignMapTask(request, reply)
 	}
 }
+
+
+func (m *Master) NotifyTaskCompletion(req *NotifyRequest, res *NotifyResponse) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if req.taskType == "MAP" {
+		completedTask := m.mapTasks[req.taskNumber]
+		if completedTask.workerID == req.workerID {
+			completedTask.taskStatus = "Completed"
+		}
+
+		allMapsDone := true
+		for k, v := range m.mapTasks {
+			if v.taskStatus != "Completed" {
+				allMapsDone = false
+				break
+			}
+		}
+		if allMapsDone {
+			m.mapTasksCompleted = true
+		}
+	} else {
+		completedTask := m.reduceTasks[req.taskNumber]
+		if completedTask.workerID == req.workerID {
+			completedTask.taskStatus = "Completed"
+		}
+
+		allReducesDone := true
+		for k, v := range m.reduceTasks {
+			if v.taskStatus != "Completed" {
+				allReducesDone = false
+				break
+			}
+		}
+		if allReducesDone {
+			m.reduceTasksCompleted = true
+		}
+	}
+	res.success = true
+	return nil
+}
+
 
 func (m *Master) AssignMapTask(request *TaskRequest, reply *TaskReply) error {
 	for k,v := range m.mapTasks {
@@ -85,6 +129,7 @@ func (m *Master) AssignMapTask(request *TaskRequest, reply *TaskReply) error {
 	}
 	return nil
 }
+
 
 func (m *Master) AssignReduceTask(request *TaskRequest, reply *TaskReply) error {
 	for i = 0; i < nReduce; i++ {

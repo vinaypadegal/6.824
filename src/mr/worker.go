@@ -26,6 +26,7 @@ func ihash(key string) int {
 	return int(h.Sum32() & 0x7fffffff)
 }
 
+
 func runMap(filename string) []KeyValue {
 	file, err := os.Open(filename)
 	if err != nil {
@@ -39,29 +40,13 @@ func runMap(filename string) []KeyValue {
 	return mapf(filename, string(content))
 }
 
+
 func writeMapOutput(kva []KeyValue, mapper int, nReduce int) {
-	// oname := "mr-out-0"
-	// ofile, _ := os.Create(oname)
-
-	// i := 0
-	// var ofiles [nReduce]*File  // is this right?
-	// for i < nReduce {
-	// 	oname := fmt.Sprintf("mr-%v-%v", mapper, i)
-	// 	ofile, _ := os.Create(oname)
-	// 	ofiles = append(ofiles, ofile)	
-	// }
-
-	// for _, kv := kva {
-	// 	reducer_number = ihash(kv.Key)
-	// 	enc := json.NewEncoder(ofiles[reducer_number])
-	// 	err := enc.Encode(&kv)
-	// }
-	
 	encoders := make(map[string]*json.Encoder)
 	for k, v := range kva {
-		reducer_number := ihash(v.Key) & nReduce
+		reducer_number := ihash(v.Key) % nReduce
 		oname := "mr-" + mapper + "-" + reducer_number
-		if encoder, exists := encoders[oname]; !exists {
+		if _, exists := encoders[oname]; !exists {
 			ofile, _ := os.Create(oname)
 			enc := json.NewEncoder(ofile)
 			encoders[oname] = enc
@@ -82,18 +67,21 @@ func Worker(mapf func(string, string) []KeyValue,
 
 	// uncomment to send the Example RPC to the master.
 	// CallExample()
+	workerID := os.Getuid()
+
 	for true {
-		if (askForReduce == false) {
-			ok, reply := RequestTask()
-			if ok == false {
-				break
-			}
-			if reply.taskType == "MAP" {
-				kva := runMap(reply.filename)
-				writeMapOutput(kva, reply.taskNumber, reply.nReduce)
-			}
-		} else {
-			// request and run reduce tasks
+		ok, reply := RequestMaster()
+		if ok == false {
+			log.Println("Master has exited, worker %d exiting.", workerID)
+			break
+		}
+		if reply.taskType == "MAP" {
+			log.Println("Worker %d: Assigned %s task %d", workerID, reply.taskType, reply.taskNumber)
+			kva := runMap(reply.filename)
+			writeMapOutput(kva, reply.taskNumber, reply.nReduce)
+		}
+		else if reply.taskType == "REDUCE" {
+			
 		}
 	}
 
@@ -107,7 +95,6 @@ func Worker(mapf func(string, string) []KeyValue,
 
 
 func CallExample() {
-
 	// declare an argument structure.
 	args := ExampleArgs{}
 
@@ -124,7 +111,8 @@ func CallExample() {
 	fmt.Printf("reply.Y %v\n", reply.Y)
 }
 
-func RequestTask() TaskReply{
+
+func RequestMaster() TaskReply{
 	request = TaskRequest{}
 	reply = TaskReply{}
 
