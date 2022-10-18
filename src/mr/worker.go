@@ -127,8 +127,7 @@ func Worker(mapf func(string, string) []KeyValue,
 			writeMapOutput(kva, reply.taskNumber, reply.nReduce)
 			res := NotifyMaster("MAP", reply.taskNumber, workerID)
 			log.Println("Worker %d: Assigned MAP task, success status: %d", workerID, res.success)
-		}
-		else if reply.taskType == "REDUCE" {
+		} else if reply.taskType == "REDUCE" {
 			log.Println("Worker: %d: Assigned REDUCE task %d", workerID, reply.taskNumber)
 			ok, intermediate := retrieveMapOutputs(reply.taskNumber, reply.nMap)
 			if ok {
@@ -139,7 +138,6 @@ func Worker(mapf func(string, string) []KeyValue,
 		}
 		time.Sleep(time.Second * 5)
 	}
-
 }
 
 //
@@ -169,7 +167,7 @@ func CallExample() {
 
 func RequestMaster() (bool, TaskReply) {
 	request := TaskRequest{
-		workedID: workerID
+		workedID: workerID,
 	}
 	reply := TaskReply{}
 
@@ -181,9 +179,9 @@ func RequestMaster() (bool, TaskReply) {
 
 func NotifyMaster(taskType, taskNumber, workerID) NotifyResponse {
 	req := NotifyRequest{
-		taskType: taskType
-		taskNumber: taskNumber
-		workerID: workerID
+		taskType: taskType,
+		taskNumber: taskNumber,
+		workerID: workerID,
 	}
 	res := NotifyResponse{}
 

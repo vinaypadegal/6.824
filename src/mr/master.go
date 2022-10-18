@@ -75,7 +75,7 @@ func (m *Master) NotifyTaskCompletion(req *NotifyRequest, res *NotifyResponse) e
 		}
 
 		allMapsDone := true
-		for k, v := range m.mapTasks {
+		for _, v := range m.mapTasks {
 			if v.taskStatus != "Completed" {
 				allMapsDone = false
 				break
@@ -180,10 +180,12 @@ func (m *Master) server() {
 // if the entire job has finished.
 //
 func (m *Master) Done() bool {
-	ret := false
+	// ret := false
 
 	// Your code here.
-
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	ret := m.mapTasksCompleted & m.reduceTasksCompleted
 
 	return ret
 }
@@ -195,21 +197,21 @@ func (m *Master) Done() bool {
 //
 func MakeMaster(files []string, nReduce int) *Master {
 	m := Master{
-		mapTasks: make(map[int]*MapTask)
-		reduceTasks: make(map[int]*ReduceTask)
+		mapTasks: make(map[int]*MapTask),
+		reduceTasks: make(map[int]*ReduceTask),
 
-		nMap: len(files)
-		nReduce: nReduce
-		threshold: time.Second * 10
+		nMap: len(files),
+		nReduce: nReduce,
+		threshold: time.Second * 10,
 
-		mapTasksCompleted: false
-		reduceTasksCompleted: false
+		mapTasksCompleted: false,
+		reduceTasksCompleted: false,
 	}
 
-	for k, v := files {
+	for k, v := range files {
 		mapTask := &MapTask{
-			taskStatus: "Not Started"
-			filename: v
+			taskStatus: "Not Started",
+			filename: v,
 			// taskNumber: k
 		}
 		m.mapTasks[k] = mapTask
@@ -218,7 +220,7 @@ func MakeMaster(files []string, nReduce int) *Master {
 	i := 0
 	for i < nReduce {
 		reduceTask := &ReduceTask{
-			taskStatus: "Not Started"
+			taskStatus: "Not Started",
 			// taskNumber: i
 		}
 		m.reduceTasks[i] = reduceTask
