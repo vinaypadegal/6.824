@@ -3,9 +3,12 @@ package mr
 import "fmt"
 import "log"
 import "os"
+import "time"
 import "encoding/json"
+import "io/ioutil"
 import "net/rpc"
 import "hash/fnv"
+import "sort"
 
 
 //
@@ -15,6 +18,13 @@ type KeyValue struct {
 	Key   string
 	Value string
 }
+
+type ByKey []KeyValue
+
+func (a ByKey) Len() int           { return len(a) }
+func (a ByKey) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a ByKey) Less(i, j int) bool { return a[i].Key < a[j].Key }
+
 
 //
 // use ihash(key) % NReduce to choose the reduce
@@ -27,7 +37,7 @@ func ihash(key string) int {
 }
 
 
-func runMap(filename string) []KeyValue {
+func runMap(mapf func(string, string) []KeyValue, filename string) []KeyValue {
 	file, err := os.Open(filename)
 	if err != nil {
 		log.Fatalf("cannot open %v", filename)
@@ -43,26 +53,32 @@ func runMap(filename string) []KeyValue {
 
 func writeMapOutput(kva []KeyValue, mapTaskNumber int, nReduce int) {
 	encoders := make(map[string]*json.Encoder)
-	for k, v := range kva {
+	for _, v := range kva {
 		reducer_number := ihash(v.Key) % nReduce
-		oname := "mr-" + mapTaskNumber + "-" + reducer_number
+		oname := fmt.Sprintf("mr-%d-%d", mapTaskNumber, reducer_number)
 		if _, exists := encoders[oname]; !exists {
 			ofile, _ := os.Create(oname)
 			enc := json.NewEncoder(ofile)
 			encoders[oname] = enc
 		}
-		encoders[oname].Encode(&kv)
+		encoders[oname].Encode(&v)
 	} 
-	return nil
+	// return nil
 }
 
 
 func retrieveMapOutputs(reduceTaskNumber int, nMap int) (bool, []KeyValue) {
 	intermediate := []KeyValue{}
-	ok = true
+	ok := true
 	for i := 0; i < nMap; i++ {
-		iname := "mr-" + i + "-" + reduceTaskNumber
-		ifile := json.NewDecoder(ifile)
+		iname := fmt.Sprintf("mr-%d-%d", i, reduceTaskNumber)
+		ifile, err := os.Open(iname)
+
+		if err != nil {
+			log.Printf("Unable to open file %s", iname)
+		}
+
+		dec := json.NewDecoder(ifile)
 
 		var kv KeyValue
     	if err := dec.Decode(&kv); err != nil {
@@ -76,10 +92,10 @@ func retrieveMapOutputs(reduceTaskNumber int, nMap int) (bool, []KeyValue) {
 }
 
 
-func runReduce(intermediate []KeyValue, reduceTaskNumber int) {
-	sort.Sort([]KeyValue(intermediate))
+func runReduce(reducef func(string, []string) string, intermediate []KeyValue, reduceTaskNumber int) {
+	sort.Sort(ByKey(intermediate))
 
-	oname := "mr-out-" + reduceTaskNumber
+	oname := fmt.Sprintf("mr-out-%d", reduceTaskNumber)
 	ofile, _ := os.Create(oname)
 
 	i := 0
@@ -116,14 +132,14 @@ func Worker(mapf func(string, string) []KeyValue,
 	workerID := os.Getuid()
 
 	for true {
-		ok, reply := RequestMaster()
+		ok, reply := RequestMaster(workerID)
 		if ok == false {
 			log.Println("Master has exited, worker %d exiting.", workerID)
 			break
 		}
 		if reply.taskType == "MAP" {
 			log.Println("Worker %d: Assigned MAP task %d", workerID, reply.taskNumber)
-			kva := runMap(reply.filename)
+			kva := runMap(mapf, reply.filename)
 			writeMapOutput(kva, reply.taskNumber, reply.nReduce)
 			res := NotifyMaster("MAP", reply.taskNumber, workerID)
 			log.Println("Worker %d: Assigned MAP task, success status: %d", workerID, res.success)
@@ -131,7 +147,7 @@ func Worker(mapf func(string, string) []KeyValue,
 			log.Println("Worker: %d: Assigned REDUCE task %d", workerID, reply.taskNumber)
 			ok, intermediate := retrieveMapOutputs(reply.taskNumber, reply.nMap)
 			if ok {
-				runReduce(intermediate)
+				runReduce(reducef, intermediate, reply.taskNumber)
 				res := NotifyMaster("REDUCE", reply.taskNumber, workerID)
 				log.Println("Worker %d: Assigned REDUCE task, success status: %d", workerID, res.success)
 			}
@@ -147,37 +163,37 @@ func Worker(mapf func(string, string) []KeyValue,
 //
 
 
-func CallExample() {
-	// declare an argument structure.
-	args := ExampleArgs{}
+// func CallExample() {
+// 	// declare an argument structure.
+// 	args := ExampleArgs{}
 
-	// fill in the argument(s).
-	args.X = 99
+// 	// fill in the argument(s).
+// 	args.X = 99
 
-	// declare a reply structure.
-	reply := ExampleReply{}
+// 	// declare a reply structure.
+// 	reply := ExampleReply{}
 
-	// send the RPC request, wait for the reply.
-	call("Master.Example", &args, &reply)
+// 	// send the RPC request, wait for the reply.
+// 	call("Master.Example", &args, &reply)
 
-	// reply.Y should be 100.
-	fmt.Printf("reply.Y %v\n", reply.Y)
-}
+// 	// reply.Y should be 100.
+// 	fmt.Printf("reply.Y %v\n", reply.Y)
+// }
 
 
-func RequestMaster() (bool, TaskReply) {
+func RequestMaster(workerID int) (bool, TaskResponse) {
 	request := TaskRequest{
-		workedID: workerID,
+		workerID: workerID,
 	}
-	reply := TaskReply{}
+	reply := TaskResponse{}
 
-	ok = call("Master.RequestTask", &request, &reply)
+	ok := call("Master.RequestTask", &request, &reply)
 
 	return ok, reply
 }
 
 
-func NotifyMaster(taskType, taskNumber, workerID) NotifyResponse {
+func NotifyMaster(taskType string, taskNumber int, workerID int) NotifyResponse {
 	req := NotifyRequest{
 		taskType: taskType,
 		taskNumber: taskNumber,

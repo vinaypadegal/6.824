@@ -8,6 +8,7 @@ import "sync"
 import "net/rpc"
 import "net/http"
 
+
 type MapTask struct {
 	taskStatus string
 	timeBegun time.Time
@@ -45,13 +46,13 @@ type Master struct {
 //
 // the RPC argument and reply types are defined in rpc.go.
 //
-func (m *Master) Example(args *ExampleArgs, reply *ExampleReply) error {
-	reply.Y = args.X + 1
-	return nil
-}
+// func (m *Master) Example(args *ExampleArgs, reply *ExampleReply) error {
+// 	reply.Y = args.X + 1
+// 	return nil
+// }
 
 
-func (m *Master) RequestTask(request *TaskRequest, reply *TaskReply) error {
+func (m *Master) RequestTask(request *TaskRequest, reply *TaskResponse) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -91,7 +92,7 @@ func (m *Master) NotifyTaskCompletion(req *NotifyRequest, res *NotifyResponse) e
 		}
 
 		allReducesDone := true
-		for k, v := range m.reduceTasks {
+		for _, v := range m.reduceTasks {
 			if v.taskStatus != "Completed" {
 				allReducesDone = false
 				break
@@ -106,8 +107,8 @@ func (m *Master) NotifyTaskCompletion(req *NotifyRequest, res *NotifyResponse) e
 }
 
 
-func (m *Master) AssignMapTask(request *TaskRequest, reply *TaskReply) error {
-	for k,v := range m.mapTasks {
+func (m *Master) AssignMapTask(request *TaskRequest, reply *TaskResponse) error {
+	for k, v := range m.mapTasks {
 		if v.taskStatus == "Not Started" {
 			reply.taskType = "MAP"
 			reply.taskNumber = k
@@ -118,42 +119,46 @@ func (m *Master) AssignMapTask(request *TaskRequest, reply *TaskReply) error {
 			v.workerID = request.workerID
 			log.Println("Assigning new map task %d to worker %d", k, request.workerID)
 		}
-		if v.taskStatus == "In Progress" & (time.Now().Sub(v.timeBegun) > m.threshold) {
-			oldWorker := v.workerID
-			reply.taskType = "MAP"
-			reply.taskNumber = k
-			reply.filename = v.filename
-			reply.nReduce = m.nReduce
-			v.timeBegun = time.Now()
-			v.workerID = request.workerID
-			log.Println("Re-assigning map task %d to worker %d, old worker was %d", k, request.workerID, oldWorker)
-		}
+		if v.taskStatus == "In Progress" {
+			if time.Now().Sub(v.timeBegun) > m.threshold {
+				oldWorker := v.workerID
+				reply.taskType = "MAP"
+				reply.taskNumber = k
+				reply.filename = v.filename
+				reply.nReduce = m.nReduce
+				v.timeBegun = time.Now()
+				v.workerID = request.workerID
+				log.Println("Re-assigning map task %d to worker %d, old worker was %d", k, request.workerID, oldWorker)
+			}
+		} 
 	}
 	return nil
 }
 
 
-func (m *Master) AssignReduceTask(request *TaskRequest, reply *TaskReply) error {
-	for i = 0; i < nReduce; i++ {
+func (m *Master) AssignReduceTask(request *TaskRequest, reply *TaskResponse) error {
+	for i := 0; i < m.nReduce; i++ {
 		v := m.reduceTasks[i]
 		if v.taskStatus == "Not Started" {
 			reply.taskType = "REDUCE"
-			reply.taskNumber = k
+			reply.taskNumber = i
 			reply.nMap = m.nMap
 			v.taskStatus = "In Progress"
 			v.timeBegun = time.Now()
 			v.workerID = request.workerID
-			log.Println("Assigning new reduce task %d to worker %d", k, request.workerID)
+			log.Println("Assigning new reduce task %d to worker %d", i, request.workerID)
 		}
-		if v.taskStatus == "In Progress" & (time.Now().Sub(v.timeBegun) > m.threshold) {
-			oldWorker := v.workerID
-			reply.taskType = "REDUCE"
-			reply.taskNumber = k
-			reply.nMap = m.nMap
-			v.timeBegun = time.Now()
-			v.workerID = request.workerID
-			log.Println("Re-assigning reduce task %d to worker %d, old worker was %d", k, request.workerID, oldWorker)
-		}
+		if v.taskStatus == "In Progress" {
+			if time.Now().Sub(v.timeBegun) > m.threshold {
+				oldWorker := v.workerID
+				reply.taskType = "REDUCE"
+				reply.taskNumber = i
+				reply.nMap = m.nMap
+				v.timeBegun = time.Now()
+				v.workerID = request.workerID
+				log.Println("Re-assigning reduce task %d to worker %d, old worker was %d", i, request.workerID, oldWorker)
+			}
+		} 
 	}
 	return nil
 }
@@ -185,7 +190,7 @@ func (m *Master) Done() bool {
 	// Your code here.
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	ret := m.mapTasksCompleted & m.reduceTasksCompleted
+	ret := m.mapTasksCompleted && m.reduceTasksCompleted
 
 	return ret
 }
