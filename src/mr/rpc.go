@@ -25,30 +25,30 @@ import "strconv"
 // Add your RPC definitions here.
 
 type TaskRequest struct {
-	workerID int
+	WorkerID int
 }
 
 type TaskResponse struct {
-	taskType string
-	taskNumber int
+	TaskType string
+	TaskNumber int
 
 	// specific to map tasks
-	filename string
-	nReduce int
+	Filename string
+	NReduce int
 
 	// specific to reduce tasks
-	nMap int
+	NMap int
 }
 
 
 type NotifyRequest struct {
-	taskType string
-	taskNumber int
-	workerID int
+	TaskType string
+	TaskNumber int
+	WorkerID int
 }
 
 type NotifyResponse struct {
-	success bool  // not really required tbh
+	Success bool  // not really required tbh
 }
 
 

@@ -129,7 +129,7 @@ func Worker(mapf func(string, string) []KeyValue,
 
 	// uncomment to send the Example RPC to the master.
 	// CallExample()
-	workerID := os.Getuid()
+	workerID := os.Getpid()
 
 	for true {
 		ok, reply := RequestMaster(workerID)
@@ -137,19 +137,19 @@ func Worker(mapf func(string, string) []KeyValue,
 			log.Println("Master has exited, worker %d exiting.", workerID)
 			break
 		}
-		if reply.taskType == "MAP" {
-			log.Println("Worker %d: Assigned MAP task %d", workerID, reply.taskNumber)
-			kva := runMap(mapf, reply.filename)
-			writeMapOutput(kva, reply.taskNumber, reply.nReduce)
-			res := NotifyMaster("MAP", reply.taskNumber, workerID)
-			log.Println("Worker %d: Assigned MAP task, success status: %d", workerID, res.success)
-		} else if reply.taskType == "REDUCE" {
-			log.Println("Worker: %d: Assigned REDUCE task %d", workerID, reply.taskNumber)
-			ok, intermediate := retrieveMapOutputs(reply.taskNumber, reply.nMap)
+		if reply.TaskType == "MAP" {
+			log.Println("Worker %d: Assigned MAP task %d", workerID, reply.TaskNumber)
+			kva := runMap(mapf, reply.Filename)
+			writeMapOutput(kva, reply.TaskNumber, reply.NReduce)
+			res := NotifyMaster("MAP", reply.TaskNumber, workerID)
+			log.Println("Worker %d: Assigned MAP task, success status: %d", workerID, res.Success)
+		} else if reply.TaskType == "REDUCE" {
+			log.Println("Worker: %d: Assigned REDUCE task %d", workerID, reply.TaskNumber)
+			ok, intermediate := retrieveMapOutputs(reply.TaskNumber, reply.NMap)
 			if ok {
-				runReduce(reducef, intermediate, reply.taskNumber)
-				res := NotifyMaster("REDUCE", reply.taskNumber, workerID)
-				log.Println("Worker %d: Assigned REDUCE task, success status: %d", workerID, res.success)
+				runReduce(reducef, intermediate, reply.TaskNumber)
+				res := NotifyMaster("REDUCE", reply.TaskNumber, workerID)
+				log.Println("Worker %d: Assigned REDUCE task, success status: %d", workerID, res.Success)
 			}
 		}
 		time.Sleep(time.Second * 5)
@@ -183,7 +183,7 @@ func Worker(mapf func(string, string) []KeyValue,
 
 func RequestMaster(workerID int) (bool, TaskResponse) {
 	request := TaskRequest{
-		workerID: workerID,
+		WorkerID: workerID,
 	}
 	reply := TaskResponse{}
 
@@ -195,9 +195,9 @@ func RequestMaster(workerID int) (bool, TaskResponse) {
 
 func NotifyMaster(taskType string, taskNumber int, workerID int) NotifyResponse {
 	req := NotifyRequest{
-		taskType: taskType,
-		taskNumber: taskNumber,
-		workerID: workerID,
+		TaskType: taskType,
+		TaskNumber: taskNumber,
+		WorkerID: workerID,
 	}
 	res := NotifyResponse{}
 

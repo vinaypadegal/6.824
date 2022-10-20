@@ -69,9 +69,9 @@ func (m *Master) NotifyTaskCompletion(req *NotifyRequest, res *NotifyResponse) e
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if req.taskType == "MAP" {
-		completedTask := m.mapTasks[req.taskNumber]
-		if completedTask.workerID == req.workerID {
+	if req.TaskType == "MAP" {
+		completedTask := m.mapTasks[req.TaskNumber]
+		if completedTask.workerID == req.WorkerID {
 			completedTask.taskStatus = "Completed"
 		}
 
@@ -86,8 +86,8 @@ func (m *Master) NotifyTaskCompletion(req *NotifyRequest, res *NotifyResponse) e
 			m.mapTasksCompleted = true
 		}
 	} else {
-		completedTask := m.reduceTasks[req.taskNumber]
-		if completedTask.workerID == req.workerID {
+		completedTask := m.reduceTasks[req.TaskNumber]
+		if completedTask.workerID == req.WorkerID {
 			completedTask.taskStatus = "Completed"
 		}
 
@@ -102,7 +102,7 @@ func (m *Master) NotifyTaskCompletion(req *NotifyRequest, res *NotifyResponse) e
 			m.reduceTasksCompleted = true
 		}
 	}
-	res.success = true
+	res.Success = true
 	return nil
 }
 
@@ -110,25 +110,25 @@ func (m *Master) NotifyTaskCompletion(req *NotifyRequest, res *NotifyResponse) e
 func (m *Master) AssignMapTask(request *TaskRequest, reply *TaskResponse) error {
 	for k, v := range m.mapTasks {
 		if v.taskStatus == "Not Started" {
-			reply.taskType = "MAP"
-			reply.taskNumber = k
-			reply.filename = v.filename
-			reply.nReduce = m.nReduce
+			reply.TaskType = "MAP"
+			reply.TaskNumber = k
+			reply.Filename = v.filename
+			reply.NReduce = m.nReduce
 			v.taskStatus = "In Progress"
 			v.timeBegun = time.Now()
-			v.workerID = request.workerID
-			log.Println("Assigning new map task %d to worker %d", k, request.workerID)
+			v.workerID = request.WorkerID
+			log.Println("Assigning new map task %d to worker %d", k, request.WorkerID)
 		}
 		if v.taskStatus == "In Progress" {
 			if time.Now().Sub(v.timeBegun) > m.threshold {
 				oldWorker := v.workerID
-				reply.taskType = "MAP"
-				reply.taskNumber = k
-				reply.filename = v.filename
-				reply.nReduce = m.nReduce
+				reply.TaskType = "MAP"
+				reply.TaskNumber = k
+				reply.Filename = v.filename
+				reply.NReduce = m.nReduce
 				v.timeBegun = time.Now()
-				v.workerID = request.workerID
-				log.Println("Re-assigning map task %d to worker %d, old worker was %d", k, request.workerID, oldWorker)
+				v.workerID = request.WorkerID
+				log.Println("Re-assigning map task %d to worker %d, old worker was %d", k, request.WorkerID, oldWorker)
 			}
 		} 
 	}
@@ -140,23 +140,23 @@ func (m *Master) AssignReduceTask(request *TaskRequest, reply *TaskResponse) err
 	for i := 0; i < m.nReduce; i++ {
 		v := m.reduceTasks[i]
 		if v.taskStatus == "Not Started" {
-			reply.taskType = "REDUCE"
-			reply.taskNumber = i
-			reply.nMap = m.nMap
+			reply.TaskType = "REDUCE"
+			reply.TaskNumber = i
+			reply.NMap = m.nMap
 			v.taskStatus = "In Progress"
 			v.timeBegun = time.Now()
-			v.workerID = request.workerID
-			log.Println("Assigning new reduce task %d to worker %d", i, request.workerID)
+			v.workerID = request.WorkerID
+			log.Println("Assigning new reduce task %d to worker %d", i, request.WorkerID)
 		}
 		if v.taskStatus == "In Progress" {
 			if time.Now().Sub(v.timeBegun) > m.threshold {
 				oldWorker := v.workerID
-				reply.taskType = "REDUCE"
-				reply.taskNumber = i
-				reply.nMap = m.nMap
+				reply.TaskType = "REDUCE"
+				reply.TaskNumber = i
+				reply.NMap = m.nMap
 				v.timeBegun = time.Now()
-				v.workerID = request.workerID
-				log.Println("Re-assigning reduce task %d to worker %d, old worker was %d", i, request.workerID, oldWorker)
+				v.workerID = request.WorkerID
+				log.Println("Re-assigning reduce task %d to worker %d, old worker was %d", i, request.WorkerID, oldWorker)
 			}
 		} 
 	}
