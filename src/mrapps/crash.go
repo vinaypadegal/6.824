@@ -8,7 +8,7 @@ package main
 // go build -buildmode=plugin crash.go
 //
 
-import "../mr"
+import "6.824/src/mr"  //added go.mod file with 6.824 folder as root and modified relative imports
 import crand "crypto/rand"
 import "math/big"
 import "strings"

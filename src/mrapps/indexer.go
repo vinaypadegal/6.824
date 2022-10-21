@@ -7,8 +7,7 @@ package main
 //
 
 import "fmt"
-import "../mr"
-
+import "6.824/src/mr"  //added go.mod file with 6.824 folder as root and modified relative imports
 import "strings"
 import "unicode"
 import "sort"

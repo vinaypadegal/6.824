@@ -3,6 +3,7 @@ package mr
 import "fmt"
 import "log"
 import "os"
+import "io"
 import "time"
 import "encoding/json"
 import "io/ioutil"
@@ -76,17 +77,25 @@ func retrieveMapOutputs(reduceTaskNumber int, nMap int) (bool, []KeyValue) {
 
 		if err != nil {
 			log.Printf("Unable to open file %s\n", iname)
+			continue
 		}
 
 		dec := json.NewDecoder(ifile)
 
-		var kv KeyValue
-    	if err := dec.Decode(&kv); err != nil {
-      		log.Println(err)
-			ok = false
-    	} else {
-			intermediate = append(intermediate, kv)
+		for {
+			var kv KeyValue
+			err := dec.Decode(&kv)
+			if err == io.EOF {
+				break
+			}
+    		if err != nil {
+      			log.Println(err)
+				ok = false
+    		} else {
+				intermediate = append(intermediate, kv)
+			}
 		}
+		
 	}
 	return ok, intermediate
 }

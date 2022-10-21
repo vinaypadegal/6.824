@@ -100,6 +100,7 @@ func (m *Master) NotifyTaskCompletion(req *NotifyRequest, res *NotifyResponse) e
 		}
 		if allReducesDone {
 			m.reduceTasksCompleted = true
+			log.Printf("Reduce tasks completed. Master exiting...\n")
 		}
 	}
 	res.Success = true
