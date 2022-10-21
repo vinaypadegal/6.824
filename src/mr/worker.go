@@ -153,12 +153,12 @@ func Worker(mapf func(string, string) []KeyValue,
 			res := NotifyMaster("MAP", reply.TaskNumber, workerID)
 			log.Printf("Worker %d: Assigned MAP task %d, success status: %t\n", workerID, reply.TaskNumber, res.Success)
 		} else if reply.TaskType == "REDUCE" {
-			log.Printf("Worker: %d: Assigned REDUCE task %d\n", workerID, reply.TaskNumber)
+			log.Printf("Worker %d: Assigned REDUCE task %d\n", workerID, reply.TaskNumber)
 			ok, intermediate := retrieveMapOutputs(reply.TaskNumber, reply.NMap)
 			if ok {
 				runReduce(reducef, intermediate, reply.TaskNumber)
 				res := NotifyMaster("REDUCE", reply.TaskNumber, workerID)
-				log.Printf("Worker %d: Assigned REDUCE task, success status: %t\n", workerID, res.Success)
+				log.Printf("Worker %d: Assigned REDUCE task %d, success status: %t\n", workerID, reply.TaskNumber, res.Success)
 			}
 		}
 		time.Sleep(time.Second * 5)
