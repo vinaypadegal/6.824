@@ -75,7 +75,7 @@ func retrieveMapOutputs(reduceTaskNumber int, nMap int) (bool, []KeyValue) {
 		ifile, err := os.Open(iname)
 
 		if err != nil {
-			log.Printf("Unable to open file %s", iname)
+			log.Printf("Unable to open file %s\n", iname)
 		}
 
 		dec := json.NewDecoder(ifile)
@@ -134,22 +134,22 @@ func Worker(mapf func(string, string) []KeyValue,
 	for true {
 		ok, reply := RequestMaster(workerID)
 		if ok == false {
-			log.Println("Master has exited, worker %d exiting.", workerID)
+			log.Printf("Connection error, worker %d exiting.\n", workerID)
 			break
 		}
 		if reply.TaskType == "MAP" {
-			log.Println("Worker %d: Assigned MAP task %d", workerID, reply.TaskNumber)
+			log.Printf("Worker %d: Assigned MAP task %d\n", workerID, reply.TaskNumber)
 			kva := runMap(mapf, reply.Filename)
 			writeMapOutput(kva, reply.TaskNumber, reply.NReduce)
 			res := NotifyMaster("MAP", reply.TaskNumber, workerID)
-			log.Println("Worker %d: Assigned MAP task, success status: %d", workerID, res.Success)
+			log.Printf("Worker %d: Assigned MAP task %d, success status: %t\n", workerID, reply.TaskNumber, res.Success)
 		} else if reply.TaskType == "REDUCE" {
-			log.Println("Worker: %d: Assigned REDUCE task %d", workerID, reply.TaskNumber)
+			log.Printf("Worker: %d: Assigned REDUCE task %d\n", workerID, reply.TaskNumber)
 			ok, intermediate := retrieveMapOutputs(reply.TaskNumber, reply.NMap)
 			if ok {
 				runReduce(reducef, intermediate, reply.TaskNumber)
 				res := NotifyMaster("REDUCE", reply.TaskNumber, workerID)
-				log.Println("Worker %d: Assigned REDUCE task, success status: %d", workerID, res.Success)
+				log.Printf("Worker %d: Assigned REDUCE task, success status: %t\n", workerID, res.Success)
 			}
 		}
 		time.Sleep(time.Second * 5)

@@ -57,7 +57,6 @@ func (m *Master) RequestTask(request *TaskRequest, reply *TaskResponse) error {
 	defer m.mu.Unlock()
 
 	if m.mapTasksCompleted == true {
-		log.Println("Map tasks completed. Assigning reduce tasks now")
 		return m.AssignReduceTask(request, reply)
 	} else {
 		return m.AssignMapTask(request, reply)
@@ -84,6 +83,7 @@ func (m *Master) NotifyTaskCompletion(req *NotifyRequest, res *NotifyResponse) e
 		}
 		if allMapsDone {
 			m.mapTasksCompleted = true
+			log.Printf("Map tasks completed. Assigning reduce tasks now\n")
 		}
 	} else {
 		completedTask := m.reduceTasks[req.TaskNumber]
@@ -117,7 +117,8 @@ func (m *Master) AssignMapTask(request *TaskRequest, reply *TaskResponse) error 
 			v.taskStatus = "In Progress"
 			v.timeBegun = time.Now()
 			v.workerID = request.WorkerID
-			log.Println("Assigning new map task %d to worker %d", k, request.WorkerID)
+			log.Printf("Assigning new map task %d to worker %d\n", k, request.WorkerID)
+			break
 		}
 		if v.taskStatus == "In Progress" {
 			if time.Now().Sub(v.timeBegun) > m.threshold {
@@ -128,7 +129,8 @@ func (m *Master) AssignMapTask(request *TaskRequest, reply *TaskResponse) error 
 				reply.NReduce = m.nReduce
 				v.timeBegun = time.Now()
 				v.workerID = request.WorkerID
-				log.Println("Re-assigning map task %d to worker %d, old worker was %d", k, request.WorkerID, oldWorker)
+				log.Printf("Re-assigning map task %d to worker %d, old worker was %d\n", k, request.WorkerID, oldWorker)
+				break
 			}
 		} 
 	}
@@ -146,7 +148,8 @@ func (m *Master) AssignReduceTask(request *TaskRequest, reply *TaskResponse) err
 			v.taskStatus = "In Progress"
 			v.timeBegun = time.Now()
 			v.workerID = request.WorkerID
-			log.Println("Assigning new reduce task %d to worker %d", i, request.WorkerID)
+			log.Printf("Assigning new reduce task %d to worker %d\n", i, request.WorkerID)
+			break
 		}
 		if v.taskStatus == "In Progress" {
 			if time.Now().Sub(v.timeBegun) > m.threshold {
@@ -156,7 +159,8 @@ func (m *Master) AssignReduceTask(request *TaskRequest, reply *TaskResponse) err
 				reply.NMap = m.nMap
 				v.timeBegun = time.Now()
 				v.workerID = request.WorkerID
-				log.Println("Re-assigning reduce task %d to worker %d, old worker was %d", i, request.WorkerID, oldWorker)
+				log.Printf("Re-assigning reduce task %d to worker %d, old worker was %d\n", i, request.WorkerID, oldWorker)
+				break
 			}
 		} 
 	}
@@ -231,6 +235,8 @@ func MakeMaster(files []string, nReduce int) *Master {
 		m.reduceTasks[i] = reduceTask
 		i = i + 1
 	}
+
+	log.Printf("Master: %d map tasks, %d reduce tasks\n", m.nMap, m.nReduce)
 
 	// Your code here.
 	// m.files = files
