@@ -1,0 +1,111 @@
+This is the documentation for the local parallelised implementation of the first assignment
+of the MIT - Distributed Systems 6.824 course. This is an implementation of Map Reduce, as
+described in the original paper, translated to a single system version as best as possible.
+This particular implementation has been written to specifically solve the word count problem
+using Map Reduce.
+
+
+wc.go
+The actual map and reduce function implementations are present here. The mapper reads a text
+file and outputs key value pairs as {word, "1"} for each word. The reducer reads the
+intermediate key value pairs and reduces the key, list of values into an output key-value
+pair. 
+
+
+mrworker.go and mrmaster.go
+These two files are responsible for creating the object of Worker and Master classes and 
+running worker.go and master.go respectively
+
+
+Some important points
+- Workers and master communicate through RPC calls where te master exposes some functions 
+which the workers can call and use to communicate with the master. The format of such an
+exposed function is as follows -- 
+func (t *T) MethodName(argType T1, replyType *T2) error
+https://pkg.go.dev/net/rpc#Client.Call
+- When a master assigns a task to a worker node, it waits a period of 10 seconds before 
+assuming that the worker node is either dead or too slow and assigning the task to some
+other worker. This is done in order to handle stragglers.
+- Each key value pairs undergoes a hashing function as hash(key) % nReduce. Therefore,
+each key is mapped to exactly one reducer by which it has to get reduced. 
+- The intermediate files that a worker writes has the format mr-s-t where s is the map task
+number and t is the reduce task number by which these key-value pairs have to be reduced
+
+
+master.go
+This file holds the implementation of the master node. First, a struct called Master is 
+created which holds all the necessary variables. This includes to lists called mapTasks
+and reduceTasks -- these hold the list of map tasks and reduce tasks respectively.
+Each map task is actually an object of type mapTask struct and has properties such as
+taskStatus ("Not Started", "In Progress", "Completed"), taskNumber, filename etc. Similarly
+for reduce tasks. 
+The main implementation with respect to the master node is to expose the RPC functions
+through which any other node (worker nodes) can contact the master and exchange information.
+Two RPC calls occur in this implementation -- one when the worker requests the master for a 
+task, and one when the worker notifies task completion to the master. 
+
+RequestTask()
+This RPC function is exposed for a worker to request a task from the master. When a worker 
+requests a task from the master, the master checks if all maps are done. If yes, it assigns
+a reduce task to the worker, else it assigns a map task. 
+While assigning a map task or a reduce task, the master iteratively goes through its 
+mapTasks or reduceTasks list and checks if the mapTasks[i] task has still not started or
+is under progress. If a task is still not started, it is assigned to the worker. If the task
+is under progress, we check if it has been 10 seconds since the previous worker was assigned
+the task and has still not completed. If yes, we reassign the task to the current worker.
+In both the above cases, we note down the time we assigned the task and the worker to which
+we assigned the task.
+
+NotifyTaskCompletion()
+This RPC function is exposed for a worker to notify the master that it has completed the
+task assigned to it. In this function, the master checks to see if the task that this 
+worker is reporting to have completed wasn't assigned to some other worker later. If yes, 
+then the master doesn't accept this submission. If no, it marks the task as completed and
+assigns some new task to the worker.
+
+Done()
+This function is used by mrmaster.go to poll the master every second to check if the 
+entire MR job has completed. This is implemented by returning true only when both map and
+reduce tasks have completed.
+
+
+worker.go
+This file is used to implement the worker node. Each worker has a workerID property which
+currently has been assigned as the process ID for that worker instance. The worker mainly 
+performs the actual map and reduce tasks and writes the output to the appropriate places.
+
+runMap()
+This function is used to actually run the map function as defined in wc.go along with some
+error checks. It returns a list of intermediate key value pairs that the map task outputs.
+
+writeMapOutput()
+This function is used to write the map task's output of intermediate key-value pairs to 
+intermediate files using the json.Encoder tool. So each mapper reads some text file and 
+outputs intermediate key-value pairs. It then hashes and mods each key to find which reducer
+that particular key-value pair must go to. It then writes that key-value pair to the
+file which is going to be read by that particular reducer. For eg, if our map task is 
+map task 3 and it hashes a key NINJA and finds that this key has to be reduced by reducer 2,
+it writes the key-value pair (NINJA, "1") to mr-3-2.
+
+retrieveMapOutputs()
+This function is used when running the reduce task. The reduce task knows its own taskNumber
+and must read all those files which the mappers have written for this reduce task to reduce.
+For example if there are 8 mappers and our reduce task number is 4, all the files --
+mr-0-4, mr-1-4 .... mr-7-4 are meant to be read by this reducer and reduced by it.
+This function is used to iterate through all these files, and read all these key-value pairs
+and return a consolidated list.
+
+runReduce()
+This function is used to actually run the reduce function and return the output key-value
+pairs. The output key-value pairs are written to an output file of the form mr-out-k where
+k is the reduce task number.
+
+
+rpc.go
+This entire file is used to define the request and response object structs for the RPC calls.
+When a worker contacts a master via some exposed RPC function, it sends a request object
+pointer and a response object pointer. The request object contains all the data that the
+worker sends to the master along with the RPC. The response object is then filled in with
+whatever details the master fills and returns to the worker. 
+This file defines the structure of the request and response object corresponding to each
+RPC exchange. 

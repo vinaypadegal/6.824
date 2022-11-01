@@ -24,42 +24,37 @@ import "strconv"
 
 // Add your RPC definitions here.
 
+// request object during RequestTask RPC
 type TaskRequest struct {
-	WorkerID int
+	WorkerID int	// process id of worker
 }
 
+// response object during RequestTask RPC
 type TaskResponse struct {
-	TaskType string
+	TaskType string		// MAP or REDUCE
 	TaskNumber int
 
 	// specific to map tasks
 	Filename string
-	NReduce int
+	NReduce int		// number of reduce tasks
 
 	// specific to reduce tasks
-	NMap int
+	NMap int  	// number of map tasks
 }
 
 
+// request object during NotifyTaskCompletion RPC
 type NotifyRequest struct {
 	TaskType string
 	TaskNumber int
 	WorkerID int
 }
 
+// response object during NotifyTaskCompletion RPC
 type NotifyResponse struct {
 	Success bool  // not really required tbh
 }
 
-
-// type MapRequest struct {}
-
-// type MapReply struct {
-// 	filename string
-// 	mapper int
-// 	nReduce int
-// 	mapsDone bool
-// }
 
 
 // Cook up a unique-ish UNIX-domain socket name

@@ -38,6 +38,7 @@ func ihash(key string) int {
 }
 
 
+// run map function and return list of intermediate key-value pairs outputted by map task
 func runMap(mapf func(string, string) []KeyValue, filename string) []KeyValue {
 	file, err := os.Open(filename)
 	if err != nil {
@@ -52,11 +53,16 @@ func runMap(mapf func(string, string) []KeyValue, filename string) []KeyValue {
 }
 
 
+// write this map task's output to the appropriate files, as specified as the documentation
 func writeMapOutput(kva []KeyValue, mapTaskNumber int, nReduce int) {
 	encoders := make(map[string]*json.Encoder)
+
+	// hash each key and determine the reducer by which this key should be reduced
 	for _, v := range kva {
 		reducer_number := ihash(v.Key) % nReduce
 		oname := fmt.Sprintf("mr-%d-%d", mapTaskNumber, reducer_number)
+
+		// write this key-value pair to the appropriate file using json.Encoder
 		if _, exists := encoders[oname]; !exists {
 			ofile, _ := os.Create(oname)
 			enc := json.NewEncoder(ofile)
@@ -68,6 +74,7 @@ func writeMapOutput(kva []KeyValue, mapTaskNumber int, nReduce int) {
 }
 
 
+// reducer retrieves all the map output key-values that must be reduced by it
 func retrieveMapOutputs(reduceTaskNumber int, nMap int) (bool, []KeyValue) {
 	intermediate := []KeyValue{}
 	ok := true
@@ -80,6 +87,7 @@ func retrieveMapOutputs(reduceTaskNumber int, nMap int) (bool, []KeyValue) {
 			continue
 		}
 
+		// uses json.Decode to decode the intermediate files meant for it
 		dec := json.NewDecoder(ifile)
 
 		for {
@@ -92,6 +100,7 @@ func retrieveMapOutputs(reduceTaskNumber int, nMap int) (bool, []KeyValue) {
       			log.Println(err)
 				ok = false
     		} else {
+				// consolidate all intermediate key-value pairs from all mappers into one list
 				intermediate = append(intermediate, kv)
 			}
 		}
@@ -101,6 +110,7 @@ func retrieveMapOutputs(reduceTaskNumber int, nMap int) (bool, []KeyValue) {
 }
 
 
+// run reduce function and write to appropriate output file
 func runReduce(reducef func(string, []string) string, intermediate []KeyValue, reduceTaskNumber int) {
 	sort.Sort(ByKey(intermediate))
 
@@ -138,25 +148,35 @@ func Worker(mapf func(string, string) []KeyValue,
 
 	// uncomment to send the Example RPC to the master.
 	// CallExample()
-	workerID := os.Getpid()
+	workerID := os.Getpid()   // process id 
 
 	for true {
 		ok, reply := RequestMaster(workerID)
+		// if unable to connect the master
 		if ok == false {
 			log.Printf("Connection error, worker %d exiting.\n", workerID)
 			break
 		}
+
+		// if received task is a map task
 		if reply.TaskType == "MAP" {
 			log.Printf("Worker %d: Assigned MAP task %d\n", workerID, reply.TaskNumber)
+			// run map and get intermediate key value pairs
 			kva := runMap(mapf, reply.Filename)
+			// write intermediate key value pairs to appropriate intermediate files
 			writeMapOutput(kva, reply.TaskNumber, reply.NReduce)
+			// notify master via RPC
 			res := NotifyMaster("MAP", reply.TaskNumber, workerID)
 			log.Printf("Worker %d: Assigned MAP task %d, success status: %t\n", workerID, reply.TaskNumber, res.Success)
+		// if received task is reduce task
 		} else if reply.TaskType == "REDUCE" {
 			log.Printf("Worker %d: Assigned REDUCE task %d\n", workerID, reply.TaskNumber)
+			// retrieve all intermediate key value pairs
 			ok, intermediate := retrieveMapOutputs(reply.TaskNumber, reply.NMap)
 			if ok {
+				// run reduce and write to appropriate out file
 				runReduce(reducef, intermediate, reply.TaskNumber)
+				// notify master of task completion via rpc
 				res := NotifyMaster("REDUCE", reply.TaskNumber, workerID)
 				log.Printf("Worker %d: Assigned REDUCE task %d, success status: %t\n", workerID, reply.TaskNumber, res.Success)
 			}
